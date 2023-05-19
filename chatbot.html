@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>CRM 카카오 챗봇 생성하기</title>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=ca048c74f5358bc88661d2178594a379"></script>
+</head>
+<body>
+<div>
+    <b>Kakao chatbot 생성할 데이터 입력</b>
+    <span>샵코드, 채널검색용 아이디, 위임봇 마스터 이메일</span>
+    <button onclick="callKakaoChatBotCreateApi();">챗봇 생성</button>
+</div>
+<div>
+    <textarea id="shopInfo" style="width: 600px;height: 1000px;">
+S000002389,@mjaw7jyeoduzoey,wonny21292@gmail.com
+
+    </textarea>
+</div>
+
+<!-- 이미지 지도를 표시할 div 입니다 -->
+<div id="staticMap"></div>
+
+<script>
+    const API_DOMAIN = 'https://crm-dev1.gongbiz.kr'
+    // const API_DOMAIN = 'http://localhost:8080'
+
+    function callKakaoChatBotCreateApi() {
+        let shopInfoList = document.getElementById("shopInfo").value.split('\n')
+
+        for (let stringShopInfo of shopInfoList) {
+            let arrayShopInfo = stringShopInfo.split(`,`)
+
+            if (arrayShopInfo.length != 3) {
+                console.log(`실패-데이터가 부족합니다. : ${stringShopInfo}`)
+                continue
+            }
+
+            let shopNo = arrayShopInfo[0].trim()
+            let kakaoChannelUuid = arrayShopInfo[1].trim()
+            let delegatorBotEmail = arrayShopInfo[2].trim()
+
+            if (shopNo == "" || kakaoChannelUuid == "" || delegatorBotEmail == "") {
+                console.log(`실패-빈 값이 존재합니다. : ${stringShopInfo}`)
+                continue
+            }
+
+            //CRM API 호출
+            $.ajax({
+                type: 'POST',
+                url: `${API_DOMAIN}/api/chatbot/kakao/shop/delegator-bot`,
+                dataType: 'json',
+                contentType : "application/json; charset=utf-8",
+                data: JSON.stringify({
+                    shopNo: shopNo,
+                    kakaoChannelUuid: kakaoChannelUuid,
+                    delegatorBotEmail: delegatorBotEmail
+                }),
+                success: function(data) {
+                    console.log(data);
+                },
+                error: function (data) {
+                    console.log(`!!ERROR : ${data}`);
+                    console.log(data.responseJSON);
+                }
+            });
+        }
+    }
+
+</script>
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>CRM 카카오 맵 썸네일 생성하기</title>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <!-- 카카오 맵 이미지 생성을 위한 js -->
+    <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=ca048c74f5358bc88661d2178594a379"></script>
+</head>
+<body>
+<div>
+    <b>KakaoMap 썸네일 생성할 데이터 입력</b>
+    <span>샵코드,샵이름,위도,경도</span>
+    <button onclick="callKakaoMapThumbnailUploadApi();">이미지 업로드</button>
+    <button onclick="callKakaoChatBotCreateApi();">카카오 챗봇 연동</button>
+</div>
+<div>
+    <textarea id="shopInfo" style="width: 600px;height: 1000px;">
+#### SAMPLE DATA ######
+S000000003,바다샵,37.5639087,127.035368,@mjaw7jyeoduzoey,wonny21292@gmail.com
+S000000004,헤렌&네일,37.5470746286973,127.051616327555,@mjaw7jyeoduzoey,wonny21292@gmail.com
+S000000005,이민철의샵,37.5639087,127.035368,@mjaw7jyeoduzoey,wonny21292@gmail.com
+S000000006,뷰티샤르망,37.39884,126.9224966,@mjaw7jyeoduzoey,wonny21292@gmail.com
+S000000007,감성네일,37.5639087,127.035368,@mjaw7jyeoduzoey,wonny21292@gmail.com
+S000000008,수이네일,37.3249215,126.8371235,@mjaw7jyeoduzoey,wonny21292@gmail.com
+S000000009,스타네일 ,35.1838496,128.5609225,@mjaw7jyeoduzoey,wonny21292@gmail.com
+S000000010,도도네일,35.3169521,128.5845517
+S000000011,뷰티공감,37.3077828,126.8166361,@mjaw7jyeoduzoey,wonny21292@gmail.com
+S000000012,혀니네일,37.4042804,126.9558911
+
+-----------------------------------------
+#### SAMPLE DATA QUERY ######
+select shopno, name, latitude, longitude, kakao_channel_uuid, kakao_bot_master_email from shop where name = '우디샵';
+    </textarea>
+</div>
+
+<!-- 이미지 지도를 표시할 div 입니다 -->
+<div id="staticMap"></div>
+
+<script>
+    const API_DOMAIN = 'https://kakao-chatbot.gongbiz.kr'
+    const MAP_SIZE_WIDTH = 300
+    const MAP_SIZE_HEIGHT = 300
+    const MAP_LEVEL = 2
+
+    function callKakaoMapThumbnailUploadApi() {
+        let shopInfoList = document.getElementById("shopInfo").value.split('\n')
+
+        for (let stringShopInfo of shopInfoList) {
+            let arrayShopInfo = stringShopInfo.split(`,`)
+
+            console.log(`DATA : ${arrayShopInfo}`)
+            if (arrayShopInfo.length < 4) {
+                console.log(`실패-데이터가 부족합니다. : ${stringShopInfo}`)
+                continue
+            }
+
+            let shopNo = arrayShopInfo[0].trim()
+            let shopName = arrayShopInfo[1].trim()
+            let latitude = arrayShopInfo[2].trim()
+            let longitude = arrayShopInfo[3].trim()
+
+            if (shopNo == "" || shopName == "" || latitude == "" || longitude == "") {
+                console.log(`실패-빈 값이 존재합니다. : ${stringShopInfo}`)
+                continue
+            }
+
+            // 이미지 지도에서 마커가 표시될 위치입니다
+            let mapPosition  = new kakao.maps.LatLng(latitude, longitude);
+            // 이미지 지도에 표시할 마커는 Object 형태입니다
+            let marker = {
+                position: mapPosition,
+                text: shopName
+            };
+
+            // div dom object 생성
+            let newDiv = document.createElement(`div`);
+            newDiv.setAttribute(`id`, `staticMap_${shopNo}`)
+            newDiv.setAttribute(`style`, `width:${MAP_SIZE_WIDTH}px;height:${MAP_SIZE_HEIGHT}px;`)
+            document.getElementById(`staticMap`).appendChild(newDiv) // 이미지 지도를 표시할 div
+            let staticMapContainer  = document.getElementById(`staticMap_${shopNo}`)
+            let staticMapOption = {
+                center: mapPosition, // 이미지 지도의 중심좌표
+                level: MAP_LEVEL, // 이미지 지도의 확대 레벨
+                marker: marker // 이미지 지도에 표시할 마커
+            };
+
+            // 이미지 지도를 생성합니다
+            let staticMap = new kakao.maps.StaticMap(staticMapContainer, staticMapOption);
+            newDiv.remove();
+
+            let kakaoImageUrl = staticMap.Gd.T.src;
+            console.log(`[카카오 이미지 URL] ${shopNo} : ${staticMap.Gd.T.src}`);
+
+            //CRM API 호출
+            $.ajax({
+                type: 'POST',
+                url: `${API_DOMAIN}/api/chatbot/kakao/shop/map/image`,
+                dataType: 'json',
+                contentType : "application/json; charset=utf-8",
+                data: JSON.stringify({
+                    imageUrl: kakaoImageUrl,
+                    shopNo : shopNo
+                }),
+                success: function(data) {
+                    console.log(`[카카오 이미지 업로드 요청 성공] ${data}`);
+                },
+                error: function (data) {
+                    console.log(`[카카오 이미지 업로드 요청 실패] ERROR : ${data}`);
+                }
+            });
+        }
+    }
+
+    function callKakaoChatBotCreateApi() {
+
+        let shopInfoList = document.getElementById("shopInfo").value.split('\n')
+
+        for (let stringShopInfo of shopInfoList) {
+            let arrayShopInfo = stringShopInfo.split(`,`)
+
+            console.log(`DATA : ${arrayShopInfo}`)
+            if (arrayShopInfo.length < 6) {
+                console.log(`실패-데이터가 부족합니다. : ${stringShopInfo}`)
+                continue
+            }
+
+            let shopNo = arrayShopInfo[0].trim()
+            let kakaoChannelUuid = arrayShopInfo[4].trim()
+            let delegatorBotEmail = arrayShopInfo[5].trim()
+
+
+            if (shopNo == "" || kakaoChannelUuid == "" || delegatorBotEmail == "") {
+                console.log(`실패-빈 값이 존재합니다. : shopNo = ${shopNo}, kakaoChannelUuid = ${kakaoChannelUuid}, delegatorBotEmail = ${delegatorBotEmail}`)
+                return;
+            }
+
+            //CRM API 호출
+            $.ajax({
+                type: 'POST',
+                url: `${API_DOMAIN}/api/chatbot/kakao/shop/delegator-bot`,
+                dataType: 'json',
+                contentType : "application/json; charset=utf-8",
+                data: JSON.stringify({
+                    shopNo: shopNo,
+                    kakaoChannelUuid: kakaoChannelUuid,
+                    delegatorBotEmail: delegatorBotEmail
+                }),
+                success: function(data) {
+                    console.log(data);
+                    console.log(`[카카오 챗봇 연동 성공] shopNo = ${shopNo}, kakaoChannelUuid = ${kakaoChannelUuid}, delegatorBotEmail = ${delegatorBotEmail}`);
+                },
+                error: function (data) {
+                    console.log(`[카카오 챗봇 연동 실패] shopNo = ${shopNo}, kakaoChannelUuid = ${kakaoChannelUuid}, delegatorBotEmail = ${delegatorBotEmail}`);
+                    console.log(`!!ERROR : ${data}`);
+                    console.log(data.responseJSON);
+                }
+            });
+        }
+    }
+
+</script>
+</body>
+</html>
